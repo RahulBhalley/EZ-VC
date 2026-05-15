@@ -395,6 +395,7 @@ def infer_process(
     sway_sampling_coef=sway_sampling_coef,
     speed=speed,
     fix_duration=fix_duration,
+    seed=None,
     device=device,
 ):
     # Split the input text into batches
@@ -422,6 +423,7 @@ def infer_process(
             sway_sampling_coef=sway_sampling_coef,
             speed=speed,
             fix_duration=fix_duration,
+            seed=seed,
             device=device,
         )
     )
@@ -445,6 +447,7 @@ def infer_batch_process(
     sway_sampling_coef=-1,
     speed=1,
     fix_duration=None,
+    seed=None,
     device=None,
     streaming=False,
     chunk_size=2048,
@@ -467,7 +470,7 @@ def infer_batch_process(
     if len(ref_text[-1].encode("utf-8")) == 1:
         ref_text = ref_text + " "
 
-    def process_batch(gen_text):
+    def process_batch(gen_text, seed_offset=0):
         local_speed = speed
         if len(gen_text.encode("utf-8")) < 10:
             local_speed = 0.3
@@ -494,6 +497,7 @@ def infer_batch_process(
                 steps=nfe_step,
                 cfg_strength=cfg_strength,
                 sway_sampling_coef=sway_sampling_coef,
+                seed=None if seed is None else seed + seed_offset,
             )
             del _
 
@@ -519,18 +523,32 @@ def infer_batch_process(
                 yield generated_wave, generated_cpu
 
     if streaming:
-        for gen_text in progress.tqdm(gen_text_batches) if progress is not None else gen_text_batches:
-            for chunk in process_batch(gen_text):
+        text_iter = progress.tqdm(gen_text_batches) if progress is not None else gen_text_batches
+        for idx, gen_text in enumerate(text_iter):
+            for chunk in process_batch(gen_text, idx):
                 yield chunk
     else:
-        with ThreadPoolExecutor() as executor:
-            futures = [executor.submit(process_batch, gen_text) for gen_text in gen_text_batches]
-            for future in progress.tqdm(futures) if progress is not None else futures:
-                result = future.result()
+        # Seeded generation uses torch.manual_seed inside sampling, so keep it
+        # sequential to avoid cross-thread RNG races.
+        if seed is not None:
+            results = [process_batch(gen_text, idx) for idx, gen_text in enumerate(gen_text_batches)]
+            result_iter = progress.tqdm(results) if progress is not None else results
+            for result in result_iter:
                 if result:
                     generated_wave, generated_mel_spec = next(result)
                     generated_waves.append(generated_wave)
                     spectrograms.append(generated_mel_spec)
+        else:
+            with ThreadPoolExecutor() as executor:
+                futures = [
+                    executor.submit(process_batch, gen_text, idx) for idx, gen_text in enumerate(gen_text_batches)
+                ]
+                for future in progress.tqdm(futures) if progress is not None else futures:
+                    result = future.result()
+                    if result:
+                        generated_wave, generated_mel_spec = next(result)
+                        generated_waves.append(generated_wave)
+                        spectrograms.append(generated_mel_spec)
 
         if generated_waves:
             if cross_fade_duration <= 0:
