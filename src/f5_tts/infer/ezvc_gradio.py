@@ -40,6 +40,9 @@ DEFAULT_TARGET_RMS = target_rms
 DEFAULT_SEED = 0
 DEFAULT_OUTPUT_DURATION = 0.0
 DEFAULT_MATCH_SOURCE_DURATION = True
+DEFAULT_XEUS_LAYER = 14
+DEFAULT_TARGET_REPEAT_CAP = 1
+DEFAULT_SOURCE_REPEAT_CAP = 2
 
 
 @dataclass
@@ -125,15 +128,35 @@ def _load_state(device_choice: str) -> EZVCState:
     return _state
 
 
-def _extract_units(audio_path: str, state: EZVCState) -> str:
+def _extract_units(
+    audio_path: str,
+    state: EZVCState,
+    layer_index: int,
+    repeat_cap: int,
+) -> str:
     previous_cwd = Path.cwd()
     os.chdir(INFER_DIR)
     try:
         from f5_tts.infer.utils_xeus import extract_units
 
-        return extract_units(audio_path, state.xeus_model, state.apply_kmeans, state.device)
+        return extract_units(
+            audio_path,
+            state.xeus_model,
+            state.apply_kmeans,
+            state.device,
+            layer_index=int(layer_index),
+            deduplicate=False,
+            max_consecutive_units=int(repeat_cap),
+        )
     finally:
         os.chdir(previous_cwd)
+
+
+def _status(percent: int, message: str, detail: str | None = None) -> str:
+    status = f"{percent}% | {message}"
+    if detail:
+        status = f"{status} | {detail}"
+    return status
 
 
 def convert_voice(
@@ -150,6 +173,10 @@ def convert_voice(
     output_duration_value: float,
     match_source_duration: bool,
     seed_value: int,
+    target_xeus_layer: int,
+    source_xeus_layer: int,
+    target_repeat_cap: int,
+    source_repeat_cap: int,
     progress: gr.Progress = gr.Progress(),
 ):
     if not target_audio:
@@ -158,11 +185,17 @@ def convert_voice(
         raise gr.Error("Source speech audio is required.")
 
     try:
+        progress(0.02, desc="Loading models")
+        yield None, _status(2, "Loading models")
         state = _load_state(device_choice)
-        progress(0.2, desc="Extracting target units")
-        ref_text = _extract_units(target_audio, state)
-        progress(0.4, desc="Extracting source units")
-        source_units = _extract_units(source_audio, state)
+
+        progress(0.15, desc="Extracting target units")
+        yield None, _status(15, "Extracting target units")
+        ref_text = _extract_units(target_audio, state, target_xeus_layer, target_repeat_cap)
+
+        progress(0.30, desc="Extracting source units")
+        yield None, _status(30, "Extracting source units", f"target units={len(ref_text)}")
+        source_units = _extract_units(source_audio, state, source_xeus_layer, source_repeat_cap)
 
         generated_segments = []
         chunks = [
@@ -172,6 +205,12 @@ def convert_voice(
         chunks = [text for text in chunks if text]
         if not chunks:
             raise gr.Error("No source units were extracted.")
+
+        yield None, _status(
+            45,
+            "Prepared generation",
+            f"source units={len(source_units)} chunks={len(chunks)}",
+        )
 
         seed = None if seed_value is None or seed_value < 0 else int(seed_value)
         target_duration = sf.info(target_audio).duration
@@ -186,8 +225,18 @@ def convert_voice(
         chunk_byte_lengths = [max(len(text.encode("utf-8")), 1) for text in chunks]
         total_chunk_bytes = sum(chunk_byte_lengths)
 
-        progress(0.55, desc="Converting speech")
         for chunk_index, gen_text in enumerate(chunks):
+            chunk_start_percent = 50 + int(40 * chunk_index / len(chunks))
+            progress(
+                chunk_start_percent / 100,
+                desc=f"Converting chunk {chunk_index + 1}/{len(chunks)}",
+            )
+            yield None, _status(
+                chunk_start_percent,
+                "Converting speech",
+                f"chunk {chunk_index + 1}/{len(chunks)}",
+            )
+
             fixed_duration = None
             if fixed_output_duration is not None:
                 chunk_output_duration = fixed_output_duration * chunk_byte_lengths[chunk_index] / total_chunk_bytes
@@ -213,16 +262,35 @@ def convert_voice(
                 show_info=lambda _: None,
             )
             generated_segments.append(audio_segment)
+            chunk_done_percent = 50 + int(40 * (chunk_index + 1) / len(chunks))
+            progress(
+                chunk_done_percent / 100,
+                desc=f"Finished chunk {chunk_index + 1}/{len(chunks)}",
+            )
+            yield None, _status(
+                chunk_done_percent,
+                "Finished chunk",
+                f"{chunk_index + 1}/{len(chunks)}",
+            )
 
         if not generated_segments:
             raise gr.Error("No audio was generated.")
 
+        progress(0.94, desc="Writing audio")
+        yield None, _status(94, "Writing audio")
         output_wave = np.concatenate(generated_segments)
         with tempfile.NamedTemporaryFile(suffix=".wav", **tempfile_kwargs) as output_file:
             output_path = output_file.name
         sf.write(output_path, output_wave, sample_rate)
         progress(1.0, desc="Done")
-        return output_path, f"{len(output_wave) / sample_rate:.2f}s"
+        yield (
+            output_path,
+            (
+                f"100% | Done | {len(output_wave) / sample_rate:.2f}s | "
+                f"target units={len(ref_text)} source units={len(source_units)} | "
+                f"repeat caps target={int(target_repeat_cap)} source={int(source_repeat_cap)}"
+            ),
+        )
     finally:
         if not keep_models_loaded:
             unload_models()
@@ -266,8 +334,38 @@ with gr.Blocks(title="EZ-VC") as app:
         value=DEFAULT_MATCH_SOURCE_DURATION,
     )
     with gr.Row():
+        target_xeus_layer_input = gr.Slider(
+            0,
+            18,
+            value=DEFAULT_XEUS_LAYER,
+            step=1,
+            label="Target XEUS Layer for K-Means",
+        )
+        source_xeus_layer_input = gr.Slider(
+            0,
+            18,
+            value=DEFAULT_XEUS_LAYER,
+            step=1,
+            label="Source XEUS Layer for K-Means",
+        )
+    with gr.Row():
+        target_repeat_cap_input = gr.Slider(
+            0,
+            6,
+            value=DEFAULT_TARGET_REPEAT_CAP,
+            step=1,
+            label="Target Repeat Cap (0 = keep all)",
+        )
+        source_repeat_cap_input = gr.Slider(
+            0,
+            6,
+            value=DEFAULT_SOURCE_REPEAT_CAP,
+            step=1,
+            label="Source Repeat Cap (0 = keep all)",
+        )
+    with gr.Row():
         converted_audio_output = gr.Audio(label="Converted Audio", type="filepath")
-        duration_output = gr.Textbox(label="Duration")
+        status_output = gr.Textbox(label="Progress")
 
     convert_button.click(
         convert_voice,
@@ -285,10 +383,14 @@ with gr.Blocks(title="EZ-VC") as app:
             output_duration_input,
             match_source_duration_input,
             seed_input,
+            target_xeus_layer_input,
+            source_xeus_layer_input,
+            target_repeat_cap_input,
+            source_repeat_cap_input,
         ],
-        outputs=[converted_audio_output, duration_output],
+        outputs=[converted_audio_output, status_output],
     )
-    unload_button.click(unload_models, outputs=[duration_output])
+    unload_button.click(unload_models, outputs=[status_output])
 
 
 @click.command()

@@ -278,16 +278,27 @@ def load_dataset(
         )
 
     elif dataset_type == "CustomDatasetPath":
-        try:
-            train_dataset = load_from_disk(f"{dataset_name}/raw")
-        except:  # noqa: E722
-            train_dataset = Dataset_.from_file(f"{dataset_name}/raw.arrow")
+        if audio_type == "raw":
+            try:
+                train_dataset = load_from_disk(f"{dataset_name}/raw")
+            except:  # noqa: E722
+                train_dataset = Dataset_.from_file(f"{dataset_name}/raw.arrow")
+            preprocessed_mel = False
+        elif audio_type == "mel":
+            train_dataset = Dataset_.from_file(f"{dataset_name}/mel.arrow")
+            preprocessed_mel = True
+        else:
+            raise ValueError(f"audio_type must be either 'raw' or 'mel', but received {audio_type}")
 
         with open(f"{dataset_name}/duration.json", "r", encoding="utf-8") as f:
             data_dict = json.load(f)
         durations = data_dict["duration"]
         train_dataset = CustomDataset(
-            train_dataset, durations=durations, preprocessed_mel=preprocessed_mel, **mel_spec_kwargs
+            train_dataset,
+            durations=durations,
+            preprocessed_mel=preprocessed_mel,
+            mel_spec_module=mel_spec_module,
+            **mel_spec_kwargs,
         )
 
     elif dataset_type == "HFDataset":

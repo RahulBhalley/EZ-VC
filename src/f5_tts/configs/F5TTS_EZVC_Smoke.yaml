@@ -1,0 +1,54 @@
+hydra:
+  run:
+    dir: ckpts/${model.name}_${model.mel_spec.mel_spec_type}_${model.tokenizer}_${datasets.name}/smoke
+
+datasets:
+  name: Dummy_EZVC_Smoke
+  batch_size_per_gpu: 1
+  batch_size_type: sample
+  max_samples: 1
+  num_workers: 0
+
+optim:
+  epochs: 1
+  learning_rate: 1e-4
+  num_warmup_updates: 1
+  grad_accumulation_steps: 1
+  max_grad_norm: 1.0
+  bnb_optimizer: False
+
+model:
+  name: F5TTS_EZVC_Smoke
+  tokenizer: custom
+  tokenizer_path: data/Dummy_EZVC_Smoke_custom/vocab.txt
+  backbone: DiT
+  arch:
+    dim: 64
+    depth: 2
+    heads: 2
+    ff_mult: 2
+    text_dim: 64
+    text_mask_padding: False
+    conv_layers: 2
+    pe_attn_head: 1
+    attn_backend: torch
+    attn_mask_enabled: False
+    checkpoint_activations: False
+  mel_spec:
+    target_sample_rate: 16000
+    n_mel_channels: 80
+    hop_length: 160
+    win_length: 640
+    n_fft: 1024
+    mel_spec_type: bigvgan
+  vocoder:
+    is_local: False
+    local_path: null
+
+ckpts:
+  logger: null
+  log_samples: False
+  save_per_updates: 999
+  keep_last_n_checkpoints: 0
+  last_per_updates: 999
+  save_dir: ckpts/${model.name}_${model.mel_spec.mel_spec_type}_${model.tokenizer}_${datasets.name}
