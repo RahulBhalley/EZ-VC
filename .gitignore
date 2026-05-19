@@ -1,5 +1,9 @@
 # Customed
 .vscode/
+.DS_Store
+.home/
+.matplotlib/
+.numba_cache/
 tests/
 runs/
 data/

@@ -1,1 +1,5 @@
-.venv-py312/bin/ez-vc_infer-gradio --host 127.0.0.1 --port 7861
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec "${script_dir}/scripts/start_inference_gradio.sh" "$@"

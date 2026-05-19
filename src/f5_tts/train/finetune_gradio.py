@@ -45,6 +45,7 @@ last_ema = None
 path_data = str(files("f5_tts").joinpath("../../data"))
 path_project_ckpts = str(files("f5_tts").joinpath("../../ckpts"))
 file_train = str(files("f5_tts").joinpath("train/finetune_cli.py"))
+DEFAULT_EZVC_PRETRAINED_CKPT = "hf://SPRINGLab/EZ-VC/model_2700000.safetensors"
 
 device = (
     "cuda"
@@ -73,6 +74,7 @@ def save_settings(
     keep_last_n_checkpoints,
     last_per_updates,
     finetune,
+    use_ezvc_pretrained,
     file_checkpoint_train,
     tokenizer_type,
     tokenizer_file,
@@ -98,6 +100,7 @@ def save_settings(
         "keep_last_n_checkpoints": keep_last_n_checkpoints,
         "last_per_updates": last_per_updates,
         "finetune": finetune,
+        "use_ezvc_pretrained": use_ezvc_pretrained,
         "file_checkpoint_train": file_checkpoint_train,
         "tokenizer_type": tokenizer_type,
         "tokenizer_file": tokenizer_file,
@@ -131,6 +134,7 @@ def load_settings(project_name):
         "keep_last_n_checkpoints": -1,
         "last_per_updates": 100,
         "finetune": True,
+        "use_ezvc_pretrained": True,
         "file_checkpoint_train": "",
         "tokenizer_type": "pinyin",
         "tokenizer_file": "",
@@ -162,6 +166,7 @@ def load_settings(project_name):
         default_settings["keep_last_n_checkpoints"],
         default_settings["last_per_updates"],
         default_settings["finetune"],
+        default_settings["use_ezvc_pretrained"],
         default_settings["file_checkpoint_train"],
         default_settings["tokenizer_type"],
         default_settings["tokenizer_file"],
@@ -338,6 +343,7 @@ def start_training(
     keep_last_n_checkpoints,
     last_per_updates,
     finetune,
+    use_ezvc_pretrained,
     file_checkpoint_train,
     tokenizer_type,
     tokenizer_file,
@@ -413,6 +419,16 @@ def start_training(
     if finetune:
         cmd += " --finetune"
 
+    if use_ezvc_pretrained:
+        if not finetune:
+            yield (
+                "Enable Finetune before using the EZ-VC pretrained checkpoint.",
+                gr.update(interactive=True),
+                gr.update(interactive=False),
+            )
+            return
+        file_checkpoint_train = file_checkpoint_train.strip() or DEFAULT_EZVC_PRETRAINED_CKPT
+
     if file_checkpoint_train != "":
         cmd += f' --pretrain "{file_checkpoint_train}"'
 
@@ -446,6 +462,7 @@ def start_training(
         keep_last_n_checkpoints,
         last_per_updates,
         finetune,
+        use_ezvc_pretrained,
         file_checkpoint_train,
         tokenizer_type,
         tokenizer_file,
@@ -1526,10 +1543,19 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
             with gr.Row():
                 exp_name = gr.Radio(label="Model", choices=["F5TTS_v1_Base", "F5TTS_Base", "E2TTS_Base"])
                 tokenizer_file = gr.Textbox(label="Tokenizer File")
-                file_checkpoint_train = gr.Textbox(label="Path to the Pretrained Checkpoint")
+                file_checkpoint_train = gr.Textbox(
+                    label="Pretrained Checkpoint Override",
+                    placeholder=DEFAULT_EZVC_PRETRAINED_CKPT,
+                    info="Leave empty to use the checked EZ-VC default, or paste a local path / hf:// URI.",
+                )
 
             with gr.Row():
                 ch_finetune = bt_create = gr.Checkbox(label="Finetune")
+                ch_use_ezvc_pretrained = gr.Checkbox(
+                    label="Use EZ-VC pretrained checkpoint",
+                    value=True,
+                    info=DEFAULT_EZVC_PRETRAINED_CKPT,
+                )
                 lb_samples = gr.Label(label="Samples")
                 bt_calculate = bt_create = gr.Button("Auto Settings")
 
@@ -1594,6 +1620,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                     keep_last_n_checkpoints_value,
                     last_per_updates_value,
                     finetune_value,
+                    use_ezvc_pretrained_value,
                     file_checkpoint_train_value,
                     tokenizer_type_value,
                     tokenizer_file_value,
@@ -1616,6 +1643,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                 keep_last_n_checkpoints.value = keep_last_n_checkpoints_value
                 last_per_updates.value = last_per_updates_value
                 ch_finetune.value = finetune_value
+                ch_use_ezvc_pretrained.value = use_ezvc_pretrained_value
                 file_checkpoint_train.value = file_checkpoint_train_value
                 tokenizer_type.value = tokenizer_type_value
                 tokenizer_file.value = tokenizer_file_value
@@ -1675,6 +1703,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                     keep_last_n_checkpoints,
                     last_per_updates,
                     ch_finetune,
+                    ch_use_ezvc_pretrained,
                     file_checkpoint_train,
                     tokenizer_type,
                     tokenizer_file,
@@ -1728,6 +1757,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                     keep_last_n_checkpoints,
                     last_per_updates,
                     ch_finetune,
+                    ch_use_ezvc_pretrained,
                     file_checkpoint_train,
                     tokenizer_type,
                     tokenizer_file,
@@ -1859,7 +1889,7 @@ Reduce the Base model size from 5GB to 1.3GB. The new checkpoint file prunes out
 def main(port, host, share, api):
     global app
     print("Starting app...")
-    app.queue(api_open=api).launch(server_name=host, server_port=port, share=share, show_api=api)
+    app.queue(api_open=api).launch(server_name=host, server_port=port, share=share)
 
 
 if __name__ == "__main__":

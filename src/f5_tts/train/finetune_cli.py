@@ -10,6 +10,12 @@ from f5_tts.model.dataset import load_dataset
 from f5_tts.model.utils import get_tokenizer
 
 
+def resolve_checkpoint_path(path: str) -> str:
+    if path.startswith("hf://"):
+        return str(cached_path(path))
+    return path
+
+
 # -------------------------- Dataset Settings --------------------------- #
 target_sample_rate = 24000
 n_mel_channels = 100
@@ -100,7 +106,7 @@ def main():
             if args.pretrain is None:
                 ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_v1_Base/model_1250000.safetensors"))
             else:
-                ckpt_path = args.pretrain
+                ckpt_path = resolve_checkpoint_path(args.pretrain)
 
     elif args.exp_name == "F5TTS_Base":
         wandb_resume_id = None
@@ -119,7 +125,7 @@ def main():
             if args.pretrain is None:
                 ckpt_path = str(cached_path("hf://SWivid/F5-TTS/F5TTS_Base/model_1200000.pt"))
             else:
-                ckpt_path = args.pretrain
+                ckpt_path = resolve_checkpoint_path(args.pretrain)
 
     elif args.exp_name == "E2TTS_Base":
         wandb_resume_id = None
@@ -136,7 +142,7 @@ def main():
             if args.pretrain is None:
                 ckpt_path = str(cached_path("hf://SWivid/E2-TTS/E2TTS_Base/model_1200000.pt"))
             else:
-                ckpt_path = args.pretrain
+                ckpt_path = resolve_checkpoint_path(args.pretrain)
 
     if args.finetune:
         if not os.path.isdir(checkpoint_path):

@@ -138,11 +138,24 @@ A local Gradio UI is available for source/reference voice conversion.
 
 ```bash
 cd /Users/rahulb/s2s-vc/ez-vc
-HF_TOKEN="$HF_TOKEN" HUGGING_FACE_HUB_TOKEN="$HF_TOKEN" \
-  .venv/bin/ez-vc_infer-gradio --host 127.0.0.1 --port 7861
+scripts/start_inference_gradio.sh
 ```
 
 Open [http://localhost:7861](http://localhost:7861).
+
+The legacy shortcut still starts the same inference UI:
+
+```bash
+./run_ez_vc.zh
+```
+
+The training/fine-tuning Gradio UI runs on port 7862 by default:
+
+```bash
+scripts/start_training_gradio.sh
+```
+
+Open [http://localhost:7862](http://localhost:7862).
 
 For 16 GB Apple Silicon Macs, the UI defaults to low-memory behavior:
 
@@ -379,6 +392,11 @@ The script stages the pretrained checkpoint here by default:
 ckpts/F5TTS_Base_bigvgan_custom_Expressive_EZVC/pretrained_model_2700000.safetensors
 ```
 
+The Gradio training UI has the same default as a checkbox:
+`Use EZ-VC pretrained checkpoint`. Leave the override box empty to use
+`hf://SPRINGLab/EZ-VC/model_2700000.safetensors`, or paste a local path / other
+`hf://` URI if you intentionally want a different starting point.
+
 Training checkpoints are written beside it:
 
 ```text
@@ -433,6 +451,29 @@ is the best practical baseline before adding new model branches.
 - `src/f5_tts/configs/F5TTS_EZVC_Smoke.yaml`: tiny local smoke config. This is
   only for checking that the trainer, dataset loading, and checkpoint writing
   work. It is not a useful voice conversion model.
+
+The training UI values are optimization/runtime controls, not model qualities
+that the network learns. The learned parts are the decoder weights saved in
+`model_last.pt` / `model_<update>.pt`. The UI values answer operational questions:
+how many epochs to run, how large each batch can be, how fast to update weights,
+how much gradient clipping to apply, how long to warm up the learning rate, how
+often to save checkpoints, and whether to use fp16/bf16 or a logger.
+
+### Environment
+
+This checkout uses `pyproject.toml` as the dependency source instead of a root
+`requirements.txt`.
+
+```bash
+cd /Users/rahulb/s2s-vc/ez-vc
+python3.12 -m venv .venv
+.venv/bin/python -m pip install -U pip
+.venv/bin/python -m pip install -e .
+```
+
+Additional dependency lists only exist inside vendored/subproject folders such
+as `src/third_party/BigVGAN/requirements.txt`; the main EZ-VC package
+requirements are in `pyproject.toml`.
 
 ### Tiny local smoke training
 
