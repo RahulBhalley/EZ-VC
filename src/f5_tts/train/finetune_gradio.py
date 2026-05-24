@@ -409,7 +409,8 @@ def start_training(
     process_arg = f"--num_processes {process_count}" if process_count > 0 else ""
 
     cmd = (
-        f'accelerate launch {process_arg} {fp16} "{file_train}" --exp_name {exp_name}'
+        f'"{python_executable}" -m accelerate.commands.launch {process_arg} {fp16} "{file_train}"'
+        f" --exp_name {exp_name}"
         f" --learning_rate {learning_rate}"
         f" --batch_size_per_gpu {batch_size_per_gpu}"
         f" --batch_size_type {batch_size_type}"
