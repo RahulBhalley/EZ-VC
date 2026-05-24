@@ -90,6 +90,15 @@ def _resolve_cached_path(path: str) -> str:
     return path
 
 
+def _apply_hf_token(hf_token: str | None) -> None:
+    hf_token = hf_token.strip() if hf_token else ""
+    if not hf_token:
+        return
+
+    os.environ["HF_TOKEN"] = hf_token
+    os.environ["HUGGING_FACE_HUB_TOKEN"] = hf_token
+
+
 def _load_state(device_choice: str) -> EZVCState:
     global _state
     device = _select_device(device_choice)
@@ -163,6 +172,7 @@ def convert_voice(
     target_audio: str | None,
     source_audio: str | None,
     device_choice: str,
+    hf_token: str | None,
     keep_models_loaded: bool,
     nfe_steps: int,
     speed_value: float,
@@ -185,6 +195,7 @@ def convert_voice(
         raise gr.Error("Source speech audio is required.")
 
     try:
+        _apply_hf_token(hf_token)
         progress(0.02, desc="Loading models")
         yield None, _status(2, "Loading models")
         state = _load_state(device_choice)
@@ -313,6 +324,12 @@ with gr.Blocks(title="EZ-VC") as app:
         convert_button = gr.Button("Convert", variant="primary")
         unload_button = gr.Button("Unload Models")
         device_input = gr.Dropdown(["auto", "mps", "cpu", "cuda"], value="auto", label="Device")
+    hf_token_input = gr.Textbox(
+        label="HF Token",
+        type="password",
+        placeholder="hf_...",
+        info="Used for gated Hugging Face checkpoints. Not saved.",
+    )
     keep_models_input = gr.Checkbox(label="Keep models loaded between conversions", value=False)
     with gr.Row():
         nfe_input = gr.Slider(4, 32, value=DEFAULT_NFE_STEPS, step=2, label="NFE Steps")
@@ -373,6 +390,7 @@ with gr.Blocks(title="EZ-VC") as app:
             target_audio_input,
             source_audio_input,
             device_input,
+            hf_token_input,
             keep_models_input,
             nfe_input,
             speed_input,

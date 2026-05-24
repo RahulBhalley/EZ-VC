@@ -351,6 +351,7 @@ def start_training(
     file_checkpoint_train,
     tokenizer_type,
     tokenizer_file,
+    hf_token,
     mixed_precision,
     num_processes,
     stream,
@@ -481,10 +482,17 @@ def start_training(
         ch_8bit_adam,
     )
 
+    env = os.environ.copy()
+    env["PYTHONUNBUFFERED"] = "1"
+    hf_token = hf_token.strip() if hf_token else ""
+    if hf_token:
+        env["HF_TOKEN"] = hf_token
+        env["HUGGING_FACE_HUB_TOKEN"] = hf_token
+
     try:
         if not stream:
             # Start the training process
-            training_process = subprocess.Popen(cmd, shell=True)
+            training_process = subprocess.Popen(cmd, shell=True, env=env)
 
             time.sleep(5)
             yield "train start", gr.update(interactive=False), gr.update(interactive=True)
@@ -501,9 +509,6 @@ def start_training(
                     output_queue.put(f"Error reading pipe: {str(e)}")
                 finally:
                     pipe.close()
-
-            env = os.environ.copy()
-            env["PYTHONUNBUFFERED"] = "1"
 
             training_process = subprocess.Popen(
                 cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1, env=env
@@ -1669,6 +1674,12 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                 cd_logger.value = logger_value
                 ch_8bit_adam.value = bnb_optimizer_value
 
+            hf_token = gr.Textbox(
+                label="HF Token",
+                type="password",
+                placeholder="hf_...",
+                info="Used for gated Hugging Face checkpoints. Not saved to settings.",
+            )
             ch_stream = gr.Checkbox(label="Stream Output Experiment", value=True)
             txt_info_train = gr.Textbox(label="Info", value="")
 
@@ -1725,6 +1736,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                     file_checkpoint_train,
                     tokenizer_type,
                     tokenizer_file,
+                    hf_token,
                     mixed_precision,
                     num_processes,
                     ch_stream,

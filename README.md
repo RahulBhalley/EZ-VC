@@ -172,6 +172,18 @@ for Kaggle inference. Add a Kaggle secret named `HF_TOKEN` before running it.
 The notebook handles clone, submodules, Python package setup, gated asset
 download, conversion, and memory cleanup.
 
+For Gradio-first cloud use, use:
+
+- [notebooks/ezvc_kaggle_gradio_ui.ipynb](notebooks/ezvc_kaggle_gradio_ui.ipynb)
+  on Kaggle.
+- [notebooks/ezvc_runpod_gradio_ui.ipynb](notebooks/ezvc_runpod_gradio_ui.ipynb)
+  on RunPod.
+
+Both notebooks clone this repo, set up `.venv`, and provide separate cells to
+start the inference UI and training UI with `--host 0.0.0.0 --share`, so Gradio
+prints a public `gradio.live` URL. Provide `HF_TOKEN` as a Kaggle secret,
+RunPod environment variable, or paste it into the UI's `HF Token` field.
+
 ## Training
 
 Short answer: yes, this repo can run training from scratch, but real EZ-VC
