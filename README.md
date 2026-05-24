@@ -72,7 +72,6 @@ conda activate ez-vc
 ```bash
 git clone https://github.com/EZ-VC/EZ-VC
 cd EZ-VC
-git submodule update --init --recursive
 pip install -e .
 
 # Install espnet for xeus (Exactly this version)
@@ -87,7 +86,6 @@ without forcing its incompatible pins, then install the runtime packages.
 
 ```bash
 cd /Users/rahulb/s2s-vc/ez-vc
-git submodule update --init --recursive
 
 python3.12 -m venv .venv
 .venv/bin/python -m pip install --upgrade pip setuptools wheel
@@ -169,8 +167,8 @@ For 16 GB Apple Silicon Macs, the UI defaults to low-memory behavior:
 
 Use [notebooks/ezvc_kaggle_inference.ipynb](notebooks/ezvc_kaggle_inference.ipynb)
 for Kaggle inference. Add a Kaggle secret named `HF_TOKEN` before running it.
-The notebook handles clone, submodules, Python package setup, gated asset
-download, conversion, and memory cleanup.
+The notebook handles clone, Python package setup, gated asset download,
+conversion, and memory cleanup.
 
 For Gradio-first cloud use, use:
 
