@@ -44,6 +44,13 @@ def parse_args():
     )
     parser.add_argument("--max_samples", type=int, default=64, help="Max sequences per batch")
     parser.add_argument("--grad_accumulation_steps", type=int, default=1, help="Gradient accumulation steps")
+    parser.add_argument(
+        "--mixed_precision",
+        type=str,
+        default=None,
+        choices=["no", "none", "fp16", "bf16", "fp8"],
+        help="Accelerate mixed precision mode. Defaults to the accelerate launch/config setting.",
+    )
     parser.add_argument("--max_grad_norm", type=float, default=1.0, help="Max gradient norm for clipping")
     parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs")
     parser.add_argument("--num_warmup_updates", type=int, default=20000, help="Warmup updates")
@@ -206,6 +213,7 @@ def main():
         log_samples=args.log_samples,
         last_per_updates=args.last_per_updates,
         bnb_optimizer=args.bnb_optimizer,
+        accelerate_kwargs={"mixed_precision": args.mixed_precision},
     )
 
     train_dataset = load_dataset(args.dataset_name, tokenizer, mel_spec_kwargs=mel_spec_kwargs)

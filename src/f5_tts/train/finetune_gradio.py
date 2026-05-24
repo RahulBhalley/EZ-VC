@@ -79,6 +79,7 @@ def save_settings(
     tokenizer_type,
     tokenizer_file,
     mixed_precision,
+    num_processes,
     logger,
     ch_8bit_adam,
 ):
@@ -105,6 +106,7 @@ def save_settings(
         "tokenizer_type": tokenizer_type,
         "tokenizer_file": tokenizer_file,
         "mixed_precision": mixed_precision,
+        "num_processes": num_processes,
         "logger": logger,
         "bnb_optimizer": ch_8bit_adam,
     }
@@ -139,6 +141,7 @@ def load_settings(project_name):
         "tokenizer_type": "pinyin",
         "tokenizer_file": "",
         "mixed_precision": "fp16",
+        "num_processes": 0,
         "logger": "none",
         "bnb_optimizer": False,
     }
@@ -171,6 +174,7 @@ def load_settings(project_name):
         default_settings["tokenizer_type"],
         default_settings["tokenizer_file"],
         default_settings["mixed_precision"],
+        default_settings["num_processes"],
         default_settings["logger"],
         default_settings["bnb_optimizer"],
     )
@@ -348,6 +352,7 @@ def start_training(
     tokenizer_type,
     tokenizer_file,
     mixed_precision,
+    num_processes,
     stream,
     logger,
     ch_8bit_adam,
@@ -400,8 +405,11 @@ def start_training(
     else:
         fp16 = ""
 
+    process_count = int(num_processes or 0)
+    process_arg = f"--num_processes {process_count}" if process_count > 0 else ""
+
     cmd = (
-        f'accelerate launch {fp16} "{file_train}" --exp_name {exp_name}'
+        f'accelerate launch {process_arg} {fp16} "{file_train}" --exp_name {exp_name}'
         f" --learning_rate {learning_rate}"
         f" --batch_size_per_gpu {batch_size_per_gpu}"
         f" --batch_size_type {batch_size_type}"
@@ -467,6 +475,7 @@ def start_training(
         tokenizer_type,
         tokenizer_file,
         mixed_precision,
+        num_processes,
         logger,
         ch_8bit_adam,
     )
@@ -1599,7 +1608,13 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
 
             with gr.Row():
                 ch_8bit_adam = gr.Checkbox(label="Use 8-bit Adam optimizer")
-                mixed_precision = gr.Radio(label="Mixed Precision", choices=["none", "fp16", "bf16"])
+                mixed_precision = gr.Radio(label="Mixed Precision", choices=["none", "fp16", "bf16", "fp8"])
+                num_processes = gr.Number(
+                    label="GPU Processes",
+                    precision=0,
+                    minimum=0,
+                    info="0 uses accelerate config; set 2+ for multi-GPU launch",
+                )
                 cd_logger = gr.Radio(label="Logger", choices=["none", "wandb", "tensorboard"])
                 with gr.Column():
                     start_button = gr.Button("Start Training")
@@ -1625,6 +1640,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                     tokenizer_type_value,
                     tokenizer_file_value,
                     mixed_precision_value,
+                    num_processes_value,
                     logger_value,
                     bnb_optimizer_value,
                 ) = load_settings(projects_selelect)
@@ -1648,6 +1664,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                 tokenizer_type.value = tokenizer_type_value
                 tokenizer_file.value = tokenizer_file_value
                 mixed_precision.value = mixed_precision_value
+                num_processes.value = num_processes_value
                 cd_logger.value = logger_value
                 ch_8bit_adam.value = bnb_optimizer_value
 
@@ -1708,6 +1725,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                     tokenizer_type,
                     tokenizer_file,
                     mixed_precision,
+                    num_processes,
                     ch_stream,
                     cd_logger,
                     ch_8bit_adam,
@@ -1762,6 +1780,7 @@ If you encounter a memory error, try reducing the batch size per GPU to a smalle
                     tokenizer_type,
                     tokenizer_file,
                     mixed_precision,
+                    num_processes,
                     cd_logger,
                     ch_8bit_adam,
                 ]

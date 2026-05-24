@@ -52,6 +52,21 @@ accelerate launch src/f5_tts/train/train.py --config-name F5TTS_v1_Base.yaml
 accelerate launch --mixed_precision=fp16 src/f5_tts/train/train.py --config-name F5TTS_v1_Base.yaml ++datasets.batch_size_per_gpu=19200
 ```
 
+For explicit multi-GPU or low-precision training:
+
+```bash
+accelerate launch --num_processes 4 --mixed_precision bf16 \
+  src/f5_tts/train/train.py \
+  --config-name F5TTS_Base_EZ-VC.yaml \
+  optim.grad_accumulation_steps=2 \
+  accelerate.mixed_precision=bf16
+```
+
+`--num_processes` should normally match the number of GPUs. `fp16`, `bf16`, and
+`fp8` are accepted by the training config; use `accelerate.mixed_precision=null`
+to follow the launcher/default Accelerate config, or `no` to disable mixed
+precision.
+
 ### 2. Finetuning practice
 Discussion board for Finetuning [#57](https://github.com/SWivid/F5-TTS/discussions/57).
 

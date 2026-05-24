@@ -39,6 +39,8 @@ def main(model_cfg):
     )
 
     # init trainer
+    accelerate_cfg = OmegaConf.select(model_cfg, "accelerate", default=None)
+    accelerate_kwargs = {} if accelerate_cfg is None else OmegaConf.to_container(accelerate_cfg, resolve=True)
     trainer = Trainer(
         model,
         epochs=model_cfg.optim.epochs,
@@ -59,6 +61,7 @@ def main(model_cfg):
         last_per_updates=model_cfg.ckpts.last_per_updates,
         log_samples=model_cfg.ckpts.log_samples,
         bnb_optimizer=model_cfg.optim.bnb_optimizer,
+        accelerate_kwargs=accelerate_kwargs,
         mel_spec_type=mel_spec_type,
         is_local_vocoder=model_cfg.model.vocoder.is_local,
         local_vocoder_path=model_cfg.model.vocoder.local_path,

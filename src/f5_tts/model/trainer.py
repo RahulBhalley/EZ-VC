@@ -23,6 +23,18 @@ from f5_tts.model.utils import default, exists
 # trainer
 
 
+def _normalize_accelerate_kwargs(accelerate_kwargs: dict | None) -> dict:
+    if accelerate_kwargs is None:
+        return {}
+
+    normalized = dict(accelerate_kwargs)
+    mixed_precision = normalized.get("mixed_precision")
+    if mixed_precision in {"none", "None", ""}:
+        normalized["mixed_precision"] = "no"
+
+    return {key: value for key, value in normalized.items() if value is not None}
+
+
 class Trainer:
     def __init__(
         self,
@@ -46,14 +58,20 @@ class Trainer:
         wandb_resume_id: str = None,
         log_samples: bool = False,
         last_per_updates=None,
-        accelerate_kwargs: dict = dict(),
-        ema_kwargs: dict = dict(),
+        accelerate_kwargs: dict | None = None,
+        ema_kwargs: dict | None = None,
         bnb_optimizer: bool = False,
         mel_spec_type: str = "vocos",  # "vocos" | "bigvgan"
         is_local_vocoder: bool = False,  # use local path vocoder
         local_vocoder_path: str = "",  # local vocoder path
-        model_cfg_dict: dict = dict(),  # training config
+        model_cfg_dict: dict | None = None,  # training config
     ):
+        if grad_accumulation_steps < 1:
+            raise ValueError("grad_accumulation_steps must be >= 1")
+
+        accelerate_kwargs = _normalize_accelerate_kwargs(accelerate_kwargs)
+        ema_kwargs = default(ema_kwargs, {})
+        model_cfg_dict = default(model_cfg_dict, {})
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 
         if logger == "wandb" and not wandb.api.api_key:
@@ -105,6 +123,12 @@ class Trainer:
             self.ema_model.to(self.accelerator.device)
 
             print(f"Using logger: {logger}")
+            print(
+                "Accelerate: "
+                f"processes={self.accelerator.num_processes}, "
+                f"mixed_precision={self.accelerator.mixed_precision}, "
+                f"device={self.accelerator.device}"
+            )
             if grad_accumulation_steps > 1:
                 print(
                     "Gradient accumulation checkpointing with per_updates now, old logic per_steps used with before f992c4e"

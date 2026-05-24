@@ -17,6 +17,9 @@ optim:
   max_grad_norm: 1.0  # gradient clipping
   bnb_optimizer: False  # use bnb 8bit AdamW optimizer or not
 
+accelerate:
+  mixed_precision: null  # null follows accelerate launch/config; use no | fp16 | bf16 | fp8 to force a mode
+
 model:
   name: F5TTS_Base  # model name
   tokenizer: custom  # tokenizer type

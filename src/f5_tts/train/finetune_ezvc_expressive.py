@@ -160,6 +160,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch-size-type", default="frame", choices=["frame", "sample"])
     parser.add_argument("--max-samples", type=int, default=16)
     parser.add_argument("--grad-accumulation-steps", type=int, default=1)
+    parser.add_argument(
+        "--mixed-precision",
+        default=None,
+        choices=["no", "none", "fp16", "bf16", "fp8"],
+        help="Accelerate mixed precision mode. Defaults to the accelerate launch/config setting.",
+    )
     parser.add_argument("--max-grad-norm", type=float, default=1.0)
     parser.add_argument("--save-per-updates", type=int, default=1000)
     parser.add_argument("--last-per-updates", type=int, default=100)
@@ -261,9 +267,11 @@ def main() -> None:
             "checkpoint_dir": checkpoint_dir.as_posix(),
             "style_conditioning": args.style_conditioning,
             "architecture_mode": args.architecture_mode,
+            "mixed_precision": args.mixed_precision,
             "mel_spec": mel_spec_kwargs(),
             "model_arch": model_arch(),
         },
+        accelerate_kwargs={"mixed_precision": args.mixed_precision},
     )
 
     if args.dry_run:

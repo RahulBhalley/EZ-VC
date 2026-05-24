@@ -276,31 +276,23 @@ Or scan a directory recursively with `--audio-dir`.
 ```bash
 cd /Users/rahulb/s2s-vc/ez-vc
 
-HF_TOKEN="$HF_TOKEN" HUGGING_FACE_HUB_TOKEN="$HF_TOKEN" \
-PYTORCH_ENABLE_MPS_FALLBACK=1 \
-  .venv-py312/bin/python src/f5_tts/train/datasets/prepare_ezvc_expressive.py \
-    --dataset-name Expressive_EZVC \
-    --manifest /path/to/expressive_manifest.csv \
-    --audio-root /path/to/expressive_dataset \
-    --audio-column audio_path \
-    --label-column style \
-    --device auto \
-    --xeus-layer 14 \
-    --repeat-cap 2 \
-    --source-prosody-mode sidecar
+scripts/prepare_ezvc_dataset.sh \
+  --manifest /path/to/expressive_manifest.csv \
+  --audio-root /path/to/expressive_dataset \
+  --audio-column audio_path \
+  --label-column style \
+  --source-prosody-sidecar
 ```
 
 Directory scan:
 
 ```bash
-HF_TOKEN="$HF_TOKEN" HUGGING_FACE_HUB_TOKEN="$HF_TOKEN" \
-PYTORCH_ENABLE_MPS_FALLBACK=1 \
-  .venv-py312/bin/python src/f5_tts/train/datasets/prepare_ezvc_expressive.py \
-    --dataset-name Expressive_EZVC \
-    --audio-dir /path/to/expressive_clips \
-    --device auto \
-    --repeat-cap 2
+scripts/prepare_ezvc_dataset.sh --audio-dir /path/to/expressive_clips
 ```
+
+The wrapper defaults to `--dataset-name Expressive_EZVC`, `--device auto`,
+`--xeus-layer 14`, `--repeat-cap 2`, `--min-duration 0.3`, and
+`--max-duration 30.0`. Use `--limit N` for a quick preprocessing smoke run.
 
 Outputs:
 
@@ -366,7 +358,7 @@ Real GPU run starting point:
 
 ```bash
 HF_TOKEN="$HF_TOKEN" HUGGING_FACE_HUB_TOKEN="$HF_TOKEN" \
-  .venv-py312/bin/python src/f5_tts/train/finetune_ezvc_expressive.py \
+  .venv/bin/accelerate launch --num_processes 1 src/f5_tts/train/finetune_ezvc_expressive.py \
     --dataset-name Expressive_EZVC \
     --epochs 5 \
     --learning-rate 1e-5 \
@@ -380,6 +372,38 @@ HF_TOKEN="$HF_TOKEN" HUGGING_FACE_HUB_TOKEN="$HF_TOKEN" \
     --keep-last-n-checkpoints 2 \
     --architecture-mode source-prosody-sidecar
 ```
+
+Multi-GPU, low-precision, and gradient accumulation are Accelerate-backed:
+
+```bash
+HF_TOKEN="$HF_TOKEN" HUGGING_FACE_HUB_TOKEN="$HF_TOKEN" \
+  .venv/bin/accelerate launch --num_processes 4 --mixed_precision bf16 \
+    src/f5_tts/train/finetune_ezvc_expressive.py \
+      --dataset-name Expressive_EZVC \
+      --epochs 5 \
+      --learning-rate 1e-5 \
+      --batch-size-per-gpu 2400 \
+      --batch-size-type frame \
+      --max-samples 16 \
+      --grad-accumulation-steps 2 \
+      --mixed-precision bf16 \
+      --num-warmup-updates 100 \
+      --save-per-updates 1000 \
+      --last-per-updates 100 \
+      --keep-last-n-checkpoints 2
+```
+
+`--num_processes` controls distributed workers, normally one per GPU.
+`--mixed_precision` on `accelerate launch` controls the launcher; the script
+also accepts `--mixed-precision no|fp16|bf16|fp8` for explicit runs. Leave it
+unset to follow your Accelerate config. Effective batch size is approximately:
+
+```text
+batch_size_per_gpu * num_processes * grad_accumulation_steps
+```
+
+Use `bf16` on GPUs with stable bfloat16 support, `fp16` otherwise, and `no` if
+you see numerical instability.
 
 `--architecture-mode unit-only` trains the current EZ-VC decoder from unit
 strings only. `--architecture-mode source-prosody-sidecar` validates that

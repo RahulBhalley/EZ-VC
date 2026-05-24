@@ -17,6 +17,9 @@ optim:
   max_grad_norm: 1.0
   bnb_optimizer: False
 
+accelerate:
+  mixed_precision: null
+
 model:
   name: F5TTS_EZVC_Smoke
   tokenizer: custom
