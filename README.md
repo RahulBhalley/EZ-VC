@@ -181,8 +181,9 @@ Both notebooks clone this repo, set up `.venv`, and provide separate cells to
 start the inference UI and training UI with `--host 0.0.0.0 --share`, so Gradio
 prints a public `gradio.live` URL. Provide `HF_TOKEN` as a Kaggle secret,
 RunPod environment variable, or paste it into the UI's `HF Token` field.
-The cloud UI notebooks create the venv with `uv` and force Python 3.12 to match
-the tested local setup, avoiding Kaggle's stdlib `venv` / `ensurepip` failure.
+The cloud UI notebooks create the venv with `uv --managed-python --seed` and
+force Python 3.12 to match the tested local setup, avoiding Kaggle's stdlib
+`venv` / `ensurepip` failure and Kaggle system-Python `sitecustomize` issues.
 
 ## Training
 
