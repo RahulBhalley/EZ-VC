@@ -81,9 +81,12 @@ if [[ ! -x "${app_bin}" ]]; then
 fi
 
 export HOME="${EZVC_HOME:-${repo_root}/.home}"
+export MPLBACKEND="Agg"
 export MPLCONFIGDIR="${MPLCONFIGDIR:-${repo_root}/.matplotlib}"
 export NUMBA_CACHE_DIR="${NUMBA_CACHE_DIR:-${repo_root}/.numba_cache}"
 export PYTORCH_ENABLE_MPS_FALLBACK="${PYTORCH_ENABLE_MPS_FALLBACK:-1}"
+unset PYTHONHOME
+unset PYTHONPATH
 
 mkdir -p "${HOME}" "${MPLCONFIGDIR}" "${NUMBA_CACHE_DIR}"
 
